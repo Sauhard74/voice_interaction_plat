@@ -19,8 +19,8 @@ export default function LiveCallInterface() {
 
   // Placeholder avatar and name
   const avatarUrl = 'https://randomuser.me/api/portraits/men/1.jpg'; // Replace with character avatar
-  const characterName = 'Elon Musk'; // Replace with dynamic name
-  const brand = 'character.ai';
+  const characterName = 'Kshitij Sir'; // Replace with dynamic name
+  const brand = 'plebz.ai';
 
   // Start a conversation on mount
   if (!conversationId && typeof window !== 'undefined') {
