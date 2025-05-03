@@ -11,6 +11,7 @@ export default function LiveCallInterface() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const [aiIsSpeaking, setAiIsSpeaking] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);

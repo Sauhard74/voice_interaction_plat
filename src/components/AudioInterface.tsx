@@ -1,14 +1,24 @@
-import { useState, useRef } from 'react';
-import { MicrophoneIcon, StopIcon, PlayIcon, PauseIcon } from '@heroicons/react/24/solid';
+import { useState, useRef, useEffect } from 'react';
+import { MicrophoneIcon, StopIcon } from '@heroicons/react/24/solid';
 import { toast } from 'react-hot-toast';
+import { api } from '@/services/api';
 
 export default function AudioInterface() {
   const [isRecording, setIsRecording] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize new conversation on mount
+  useEffect(() => {
+    api.startConversation()
+      .then(res => setConversationId(res.conversation_id))
+      .catch(err => toast.error('Failed to start conversation'));
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -25,20 +35,8 @@ export default function AudioInterface() {
 
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
-        
-        // Create audio element if it doesn't exist
-        if (!audioPlayerRef.current) {
-          const audioElement = document.createElement('audio');
-          audioElement.style.display = 'none';
-          document.body.appendChild(audioElement);
-          audioPlayerRef.current = audioElement;
-        }
-        
-        if (audioPlayerRef.current) {
-          audioPlayerRef.current.src = url;
-        }
+        // stop and send to backend for processing
+        if (conversationId) handleSendAudio(audioBlob);
       };
 
       mediaRecorder.start();
@@ -50,26 +48,57 @@ export default function AudioInterface() {
     }
   };
 
+  // handle sending audio to backend and playing the TTS response
+  const handleSendAudio = async (audioBlob: Blob) => {
+    setIsProcessing(true);
+    setPlaybackError(null);
+    try {
+      console.log("Sending audio to backend at:", process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000');
+      const response = await api.sendAudio(conversationId!, audioBlob);
+      console.log("Response from backend:", response);
+      toast.success('Response received');
+      
+      // play TTS audio from backend
+      const base = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+      const audioPath = response.audio_url.startsWith('/') ? response.audio_url : `/${response.audio_url}`;
+      const audioEndpoint = `${base}${audioPath}`;
+      console.log("Playing audio from:", audioEndpoint);
+      setAudioUrl(audioEndpoint);
+      
+      if (!audioPlayerRef.current) {
+        const el = document.createElement('audio');
+        el.addEventListener('error', (e) => {
+          console.error("Audio playback error:", e);
+          setPlaybackError(`Failed to load audio: ${(e.target as HTMLAudioElement).error?.message || 'Unknown error'}`);
+        });
+        el.style.display = 'none';
+        document.body.appendChild(el);
+        audioPlayerRef.current = el;
+      }
+      
+      audioPlayerRef.current.src = audioEndpoint;
+      
+      try {
+        await audioPlayerRef.current.play();
+      } catch (playError) {
+        console.error("Audio play error:", playError);
+        setPlaybackError(`Failed to play audio: ${playError instanceof Error ? playError.message : 'Unknown error'}`);
+        throw playError;
+      }
+    } catch (error) {
+      toast.error(`Error processing audio: ${error instanceof Error ? error.message : "Unknown error"}`);
+      console.error("Audio processing error details:", error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       setIsRecording(false);
       toast.success('Recording stopped');
-    }
-  };
-
-  const playAudio = () => {
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.play();
-      setIsPlaying(true);
-    }
-  };
-
-  const pauseAudio = () => {
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      setIsPlaying(false);
     }
   };
 
@@ -110,48 +139,25 @@ export default function AudioInterface() {
               Stop Recording
             </button>
           )}
-
-          {audioUrl && (
-            <button
-              onClick={isPlaying ? pauseAudio : playAudio}
-              className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              {isPlaying ? (
-                <>
-                  <PauseIcon className="h-6 w-6 mr-2" />
-                  Pause
-                </>
-              ) : (
-                <>
-                  <PlayIcon className="h-6 w-6 mr-2" />
-                  Play
-                </>
-              )}
-            </button>
-          )}
+          {isProcessing && <span className="text-gray-500">Processing...</span>}
         </div>
-
-        {/* Audio Quality Info */}
+        
+        {/* Audio player for debugging */}
         {audioUrl && (
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg w-full">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Audio Information</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-600">Format</p>
-                <p className="font-medium">WebM</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Duration</p>
-                <p className="font-medium">
-                  {audioPlayerRef.current?.duration
-                    ? `${Math.round(audioPlayerRef.current.duration)}s`
-                    : 'Calculating...'}
-                </p>
-              </div>
-            </div>
+          <div className="mt-6 w-full">
+            <h3 className="text-lg font-semibold mb-2">AI Response</h3>
+            <audio 
+              src={audioUrl} 
+              controls 
+              className="w-full mt-2" 
+              onError={(e) => setPlaybackError(`Error loading audio: ${(e.target as HTMLAudioElement).error?.message}`)}
+            />
+            {playbackError && (
+              <p className="text-red-500 mt-2">{playbackError}</p>
+            )}
           </div>
         )}
       </div>
     </div>
   );
-} 
+}
