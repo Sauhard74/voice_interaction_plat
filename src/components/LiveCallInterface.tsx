@@ -11,6 +11,7 @@ export default function LiveCallInterface() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const [aiIsSpeaking, setAiIsSpeaking] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -18,8 +19,8 @@ export default function LiveCallInterface() {
 
   // Placeholder avatar and name
   const avatarUrl = 'https://randomuser.me/api/portraits/men/1.jpg'; // Replace with character avatar
-  const characterName = 'Elon Musk'; // Replace with dynamic name
-  const brand = 'character.ai';
+  const characterName = 'Kshitij Sir'; // Replace with dynamic name
+  const brand = 'plebz.ai';
 
   // Start a conversation on mount
   if (!conversationId && typeof window !== 'undefined') {

@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --accent-blue: #1e3a8a;
 }
 
 @theme inline {
@@ -20,7 +21,108 @@
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(to bottom, #0a0a0a, #111827);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
+
+.gradient-bg {
+  background: linear-gradient(to bottom, #04305e, #0b1e39);
+  opacity: 1;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.avatar-container {
+  border-radius: 50%;
+  overflow: hidden;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  box-shadow: 0 0 20px rgba(3, 105, 161, 0.5);
+}
+
+.btn-round {
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-mute {
+  background-color: #1e293b;
+  color: white;
+}
+
+.btn-hangup {
+  background-color: #ef4444;
+  color: white;
+}
+
+/* Audio wave animation */
+.audio-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+}
+
+.audio-wave span {
+  display: inline-block;
+  width: 2px;
+  height: 16px;
+  margin: 0 2px;
+  background-color: #fff;
+  border-radius: 2px;
+  opacity: 0.5;
+}
+
+.audio-wave.active span:nth-child(1) {
+  animation: sound 0.5s 0.1s ease-in-out infinite;
+}
+
+.audio-wave.active span:nth-child(2) {
+  animation: sound 0.5s 0.2s ease-in-out infinite;
+}
+
+.audio-wave.active span:nth-child(3) {
+  animation: sound 0.5s 0.3s ease-in-out infinite;
+}
+
+.audio-wave.active span:nth-child(4) {
+  animation: sound 0.5s 0.4s ease-in-out infinite;
+}
+
+.audio-wave.active span:nth-child(5) {
+  animation: sound 0.5s 0.5s ease-in-out infinite;
+}
+
+@keyframes sound {
+  0% {
+    height: 10px;
+  }
+  50% {
+    height: 30px;
+  }
+  100% {
+    height: 10px;
+  }
+}
+
+/* Button styles */
+.btn-speaking {
+  background-color: #e2e8f0;
+  color: #1e293b;
+  font-size: 0.95rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-speaking:hover {
+  background-color: #f8fafc;
 }
