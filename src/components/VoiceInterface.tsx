@@ -2,15 +2,32 @@ import { useState, useRef, useEffect } from 'react';
 import { MicrophoneIcon, PhoneIcon } from '@heroicons/react/24/solid';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
+import { api } from '@/services/api';
 
 export default function VoiceInterface() {
   const [isRecording, setIsRecording] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [characterName, setCharacterName] = useState('Kshitij Sir');
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize new conversation when component mounts
+  useEffect(() => {
+    api.startConversation()
+      .then(res => {
+        setConversationId(res.conversation_id);
+        console.log("Conversation initialized with ID:", res.conversation_id);
+      })
+      .catch(err => {
+        console.error("Failed to start conversation:", err);
+        toast.error('Failed to connect to AI service');
+      });
+  }, []);
 
   // Function to start recording
   const startRecording = async () => {
@@ -28,19 +45,12 @@ export default function VoiceInterface() {
 
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
         
-        // Create audio element if it doesn't exist
-        if (!audioPlayerRef.current) {
-          const audioElement = document.createElement('audio');
-          audioElement.style.display = 'none';
-          document.body.appendChild(audioElement);
-          audioPlayerRef.current = audioElement;
-        }
-        
-        if (audioPlayerRef.current) {
-          audioPlayerRef.current.src = url;
+        // Send recording to backend for processing
+        if (conversationId) {
+          handleSendAudioToBackend(audioBlob);
+        } else {
+          toast.error('Connection to AI service not established');
         }
       };
 
@@ -50,6 +60,48 @@ export default function VoiceInterface() {
     } catch (error) {
       toast.error('Failed to start recording');
       console.error('Error starting recording:', error);
+    }
+  };
+
+  // Function to send audio to backend and play response
+  const handleSendAudioToBackend = async (audioBlob: Blob) => {
+    setIsProcessing(true);
+    try {
+      toast.loading('Processing your message...', { id: 'processing' });
+      console.log("Sending audio to backend at:", process.env.NEXT_PUBLIC_API_BASE_URL);
+      
+      const response = await api.sendAudio(conversationId!, audioBlob);
+      console.log("Response from backend:", response);
+      
+      // Store AI response text
+      setAiResponse(response.message);
+      toast.success('Response received', { id: 'processing' });
+      
+      // Play TTS audio response
+      const base = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+      const audioPath = response.audio_url.startsWith('/') ? response.audio_url : `/${response.audio_url}`;
+      const audioEndpoint = `${base}${audioPath}`;
+      console.log("Playing audio from:", audioEndpoint);
+      setAudioUrl(audioEndpoint);
+      
+      // Create or update audio player
+      if (!audioPlayerRef.current) {
+        const audioElement = document.createElement('audio');
+        audioElement.style.display = 'none';
+        document.body.appendChild(audioElement);
+        audioPlayerRef.current = audioElement;
+      }
+      
+      audioPlayerRef.current.src = audioEndpoint;
+      await audioPlayerRef.current.play().catch(error => {
+        console.error("Audio playback error:", error);
+        toast.error("Couldn't play audio response");
+      });
+    } catch (error) {
+      console.error("Error processing audio:", error);
+      toast.error('Failed to process your message', { id: 'processing' });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -75,6 +127,9 @@ export default function VoiceInterface() {
   // Handle hang up
   const handleHangUp = () => {
     stopRecording();
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+    }
     toast.success('Call ended');
   };
 
@@ -108,11 +163,24 @@ export default function VoiceInterface() {
             <span></span>
           </div>
           
+          {aiResponse && !isRecording && !isProcessing && (
+            <div className="text-white text-center mb-4 bg-gray-800 bg-opacity-50 p-4 rounded-lg max-w-xs">
+              <p>{aiResponse}</p>
+            </div>
+          )}
+          
+          {isProcessing && (
+            <div className="text-white text-center mb-4">
+              <p>Processing...</p>
+            </div>
+          )}
+          
           <button
             onClick={isRecording ? stopRecording : startRecording}
+            disabled={isProcessing}
             className="btn-speaking"
           >
-            {isRecording ? 'Stop speaking' : 'Start speaking'}
+            {isRecording ? 'Stop speaking' : isProcessing ? 'Processing...' : 'Start speaking'}
           </button>
         </div>
 
@@ -136,4 +204,4 @@ export default function VoiceInterface() {
       </div>
     </div>
   );
-} 
+}
